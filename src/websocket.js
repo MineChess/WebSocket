@@ -1,5 +1,6 @@
 const WebSocket = require('ws');
 require('dotenv').config();
+const authorize = require('./middleware/auth');
 
 const PORT = process.env.PORT || 5000;
 const wss = new WebSocket.Server({ port: PORT });
@@ -19,19 +20,8 @@ const initialBoard = [
 
 let gameBoard = JSON.parse(JSON.stringify(initialBoard)); // Deep copy of initial board
 
-wss.on('connection', (ws, req) => {
+wss.on('connection', authorize, (ws, req) => {
     console.log(`Client connected`);
-
-    const urlParams = new URLSearchParams(req.url.slice(1));
-    if (urlParams.get('token') !== process.env.WS_TOKEN) {
-        console.log('Invalid token: ' + urlParams.get('token'));
-        ws.send(JSON.stringify({
-            status: 1,
-            msg: 'ERROR: Invalid token.'
-        }));
-        ws.close();
-        return;
-    }
 
     if (!clients.has(ws)) {
         clients.add(ws);
