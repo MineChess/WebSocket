@@ -20,54 +20,57 @@ const initialBoard = [
 
 let gameBoard = JSON.parse(JSON.stringify(initialBoard)); // Deep copy of initial board
 
-wss.on('connection', authorize, (ws, req) => {
-    console.log(`Client connected`);
+wss.on('connection', (ws, req) => {
+    authorize(ws, req, () => {
 
-    if (!clients.has(ws)) {
-        clients.add(ws);
-        clientCount++;
-        broadcastClientCount();
+        console.log(`Client connected`);
 
-        // Send the initial game state to the newly connected client
-        ws.send(JSON.stringify({
-            type: 'gameState',
-            board: gameBoard
-        }));
-    }
-
-    console.log(`Connected clients: ${clients.size}`);
-
-    ws.on('message', (message) => {
-        const msg = JSON.parse(message);
-        console.log('Received message:', msg);
-
-        if (msg.type === 'move') {
-            const start = msg.start;
-            const end = msg.end;
-
-            // Handle the move
-            const piece = gameBoard[start[0]][start[1]];
-            if (piece) {
-                // Move the piece
-                gameBoard[end[0]][end[1]] = piece; // Place the piece at the new position
-                gameBoard[start[0]][start[1]] = null; // Remove it from the old position
-
-                // Broadcast the new game state to all clients
-                broadcastGameState();
-            } else {
-                console.log('Invalid move attempt:', msg);
-            }
-        }
-    });
-
-    ws.on('close', () => {
-        if (clients.has(ws)) {
-            clients.delete(ws);
-            clientCount--;
+        if (!clients.has(ws)) {
+            clients.add(ws);
+            clientCount++;
             broadcastClientCount();
+
+            // Send the initial game state to the newly connected client
+            ws.send(JSON.stringify({
+                type: 'gameState',
+                board: gameBoard
+            }));
         }
-        console.log('Client disconnected');
-    });
+
+        console.log(`Connected clients: ${clients.size}`);
+
+        ws.on('message', (message) => {
+            const msg = JSON.parse(message);
+            console.log('Received message:', msg);
+
+            if (msg.type === 'move') {
+                const start = msg.start;
+                const end = msg.end;
+
+                // Handle the move
+                const piece = gameBoard[start[0]][start[1]];
+                if (piece) {
+                    // Move the piece
+                    gameBoard[end[0]][end[1]] = piece; // Place the piece at the new position
+                    gameBoard[start[0]][start[1]] = null; // Remove it from the old position
+
+                    // Broadcast the new game state to all clients
+                    broadcastGameState();
+                } else {
+                    console.log('Invalid move attempt:', msg);
+                }
+            }
+        });
+
+        ws.on('close', () => {
+            if (clients.has(ws)) {
+                clients.delete(ws);
+                clientCount--;
+                broadcastClientCount();
+            }
+            console.log('Client disconnected');
+        });
+    })
 
     function broadcastClientCount() {
         wss.clients.forEach((client) => {
