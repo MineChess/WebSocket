@@ -2,90 +2,69 @@ const WebSocket = require('ws');
 require('dotenv').config();
 const authorize = require('./middleware/auth');
 
+
 const PORT = process.env.PORT || 5000;
-const wss = new WebSocket.Server({ port: PORT });
-const clients = new Set();
-let clientCount = 0;
 
-const initialBoard = [
-    ["r", "n", "b", "q", "k", "b", "n", "r"],
-    ["p", "p", "p", "p", "p", "p", "p", "p"],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    ["P", "P", "P", "P", "P", "P", "P", "P"],
-    ["R", "N", "B", "Q", "K", "B", "N", "R"]
-];
+const wss = new WebSocket.Server({ port: PORT }); //wss is the websocket server
 
-let gameBoard = JSON.parse(JSON.stringify(initialBoard)); // Deep copy of initial board
+let players = [];
+
+console.log('WebSocket server is running on ws://localhost:', PORT);
 
 wss.on('connection', (ws, req) => {
-    authorize(ws, req, () => {
 
-        console.log(`Client connected`);
+    if (!authorize(ws, req)) {
+        ws.close(1008, "Authorization failed");
+        console.log("Authorization failed: Connection closed");
+        return;
+    }
 
-        if (!clients.has(ws)) {
-            clients.add(ws);
-            clientCount++;
-            broadcastClientCount();
+    console.log('New connection established');
 
-            // Send the initial game state to the newly connected client
-            ws.send(JSON.stringify({
-                type: 'gameState',
-                board: gameBoard
-            }));
+    if (players.length < 2) {
+        players.push(ws);
+        const playerNumber = players.length;
+        const message = JSON.stringify({ type: 'info', message: 'You are player ' + playerNumber });
+        ws.send(message);
+        console.log('Sent to player ' + playerNumber + ':', message);
+        console.log('Number of connected players:', players.length);
+
+        if (players.length === 2) {
+            const startMessageWhite = JSON.stringify({ type: 'info', message: 'Game start! You are white.' });
+            const startMessageBlack = JSON.stringify({ type: 'info', message: 'Game start! You are black.' });
+            players[0].send(startMessageWhite);
+            players[1].send(startMessageBlack);
+            console.log('Game started');
+            console.log('Sent to player 1:', startMessageWhite);
+            console.log('Sent to player 2:', startMessageBlack);
         }
 
-        console.log(`Connected clients: ${clients.size}`);
-
         ws.on('message', (message) => {
-            const msg = JSON.parse(message);
-            console.log('Received message:', msg);
-
-            if (msg.type === 'move') {
-                const start = msg.start;
-                const end = msg.end;
-
-                // Handle the move
-                const piece = gameBoard[start[0]][start[1]];
-                if (piece) {
-                    // Move the piece
-                    gameBoard[end[0]][end[1]] = piece; // Place the piece at the new position
-                    gameBoard[start[0]][start[1]] = null; // Remove it from the old position
-
-                    // Broadcast the new game state to all clients
-                    broadcastGameState();
-                } else {
-                    console.log('Invalid move attempt:', msg);
+            console.log('Received message:', message);
+            try {
+                const data = JSON.parse(message);
+                if (data.type === 'move') {
+                    players.forEach(player => {
+                        if (player !== ws) {
+                            player.send(message);
+                            console.log('Broadcasted move:', message);
+                        }
+                    });
                 }
+            } catch (error) {
+                console.error('Error parsing message:', error);
             }
         });
 
         ws.on('close', () => {
-            if (clients.has(ws)) {
-                clients.delete(ws);
-                clientCount--;
-                broadcastClientCount();
-            }
-            console.log('Client disconnected');
+            console.log('Connection closed');
+            players = players.filter(player => player !== ws);
+            console.log('Number of connected players:', players.length);
         });
-    })
-
-    function broadcastClientCount() {
-        wss.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ type: 'clientCount', count: clientCount }));
-            }
-        });
-    }
-
-    function broadcastGameState() {
-        const message = JSON.stringify({ type: 'gameState', board: gameBoard });
-        clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(message);
-            }
-        });
+    } else {
+        const fullMessage = JSON.stringify({ type: 'info', message: 'Game is full.' });
+        ws.send(fullMessage);
+        console.log('Sent to player: Game is full');
+        ws.close();
     }
 });
