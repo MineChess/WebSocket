@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken')
 module.exports = (ws, req) => {
     try {
         const urlParams = new URLSearchParams(req.url.slice(1)); // Parse URL parameters from the request URL
-        console.log(`authorize jwt: ${urlParams}`);
+        console.log(`authorize jwt: ${urlParams.get('token')}`);
         
         const token = urlParams.get('token');
         if (!token) {

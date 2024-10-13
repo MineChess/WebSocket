@@ -6,33 +6,40 @@ const PORT = process.env.PORT || 5000;
 
 const wss = new WebSocket.Server({ port: PORT }); //wss is the websocket server
 
-let players = [];
+let clients = {}
 
 console.log('WebSocket server is running on ws://localhost:', PORT);
 
 wss.on('connection', (ws, req) => {
-
     if (!authorize(ws, req)) {
         ws.close(1008, "Authorization failed");
         console.log("Authorization failed: Connection closed");
         return;
     }
 
-    console.log('New connection established');
+    console.log(`Client connected, ${req.headers['gameId']}`);
 
-    if (players.length < 2) {
-        players.push(ws);
-        const playerNumber = players.length;
+    const urlParams = new URLSearchParams(req.url.slice(1));
+    const boardId = urlParams.get('gameId');
+
+    if (!clients[boardId]) {
+        clients[boardId] = new Set();
+    }
+
+    if (clients[boardId].size < 2 && !clients[boardId].has(ws)) {
+        clients[boardId].add(ws)
+        const playerNumber = clients[boardId].size;
         const message = JSON.stringify({ type: 'info', message: 'You are player ' + playerNumber });
         ws.send(message);
         console.log('Sent to player ' + playerNumber + ':', message);
-        console.log('Number of connected players:', players.length);
+        console.log('Number of connected players:', clients[boardId].size);
 
-        if (players.length === 2) {
+        if (clients[boardId].size === 2) {
+            const [playerWhite, playerBlack] = Array.from(clients[boardId]);
             const startMessageWhite = JSON.stringify({ type: 'info', message: 'Game start! You are white.' });
             const startMessageBlack = JSON.stringify({ type: 'info', message: 'Game start! You are black.' });
-            players[0].send(startMessageWhite);
-            players[1].send(startMessageBlack);
+            playerWhite.send(startMessageWhite);
+            playerBlack.send(startMessageBlack);
             console.log('Game started');
             console.log('Sent to player 1:', startMessageWhite);
             console.log('Sent to player 2:', startMessageBlack);
@@ -49,7 +56,7 @@ wss.on('connection', (ws, req) => {
             try {
                 const data = JSON.parse(message);
                 if (data.type === 'move') {
-                    players.forEach(player => {
+                    clients[boardId].forEach(player => {
                         if (player !== ws) {
                             player.send(message);
                             console.log('Broadcasted move:', message);
@@ -64,8 +71,8 @@ wss.on('connection', (ws, req) => {
         ws.on('close', () => {
             console.log('Connection closed');
             clearTimeout(disconnectTimeout); // Clear the disconnect timeout if the player disconnects earlier
-            players = players.filter(player => player !== ws);
-            console.log('Number of connected players:', players.length);
+            clients[boardId].delete(ws);
+            console.log('Number of connected players:', clients[boardId]?.size);
         });
     } else {
         const fullMessage = JSON.stringify({ type: 'info', message: 'Game is full.' });
