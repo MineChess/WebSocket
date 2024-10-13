@@ -2,7 +2,6 @@ const WebSocket = require('ws');
 require('dotenv').config();
 const authorize = require('./middleware/auth');
 
-
 const PORT = process.env.PORT || 5000;
 
 const wss = new WebSocket.Server({ port: PORT }); //wss is the websocket server
@@ -39,6 +38,12 @@ wss.on('connection', (ws, req) => {
             console.log('Sent to player 2:', startMessageBlack);
         }
 
+        // DC player after 1 hour (3600 seconds)
+        const disconnectTimeout = setTimeout(() => {
+            ws.close(1000, 'Session expired: Disconnected after 1 hour');
+            console.log(`Player ${playerNumber} was disconnected after 1 hour`);
+        }, 3600 * 1000); // 1 hour
+
         ws.on('message', (message) => {
             console.log('Received message:', message);
             try {
@@ -58,6 +63,7 @@ wss.on('connection', (ws, req) => {
 
         ws.on('close', () => {
             console.log('Connection closed');
+            clearTimeout(disconnectTimeout); // Clear the disconnect timeout if the player disconnects earlier
             players = players.filter(player => player !== ws);
             console.log('Number of connected players:', players.length);
         });
