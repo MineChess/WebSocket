@@ -63,6 +63,14 @@ wss.on('connection', (ws, req) => {
                             console.log('Broadcasted move:', message);
                         }
                     });
+                } else if (data.type === 'reset') { // Handle reset message
+                    clients[boardId].forEach(player => {
+                        if (player !== ws) {
+                            const resetBroadcast = JSON.stringify({ type: 'reset', message: 'The game has been reset by another player.' });
+                            player.send(resetBroadcast); // Notify the other player
+                            console.log('Broadcasted reset message:', resetBroadcast);
+                        }
+                    });
                 }
             } catch (error) {
                 console.error('Error parsing message:', error);
