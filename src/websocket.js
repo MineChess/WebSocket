@@ -17,10 +17,11 @@ wss.on('connection', (ws, req) => {
         return;
     }
 
-    console.log(`Client connected, ${req.headers['gameId']}`);
-
     const urlParams = new URLSearchParams(req.url.slice(1));
     const boardId = urlParams.get('gameId');
+
+    console.log(`Client connected to game: ${boardId}`);
+
 
     if (!clients[boardId]) {
         clients[boardId] = new Set();
