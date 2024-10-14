@@ -30,15 +30,15 @@ wss.on('connection', (ws, req) => {
     if (clients[boardId].size < 2 && !clients[boardId].has(ws)) {
         clients[boardId].add(ws)
         const playerNumber = clients[boardId].size;
-        const message = JSON.stringify({ type: 'info', message: 'You are player ' + playerNumber });
+        const message = JSON.stringify({ type: 'info', message: 'Waiting for player...' });
         ws.send(message);
         console.log('Sent to player ' + playerNumber + ':', message);
         console.log('Number of connected players:', clients[boardId].size);
 
         if (clients[boardId].size === 2) {
             const [playerWhite, playerBlack] = Array.from(clients[boardId]);
-            const startMessageWhite = JSON.stringify({ type: 'info', message: 'Game start! You are white.' });
-            const startMessageBlack = JSON.stringify({ type: 'info', message: 'Game start! You are black.' });
+            const startMessageWhite = JSON.stringify({ type: 'info', message: 'Game start!' });
+            const startMessageBlack = JSON.stringify({ type: 'info', message: 'Game start!' });
             playerWhite.send(startMessageWhite);
             playerBlack.send(startMessageBlack);
             console.log('Game started');
